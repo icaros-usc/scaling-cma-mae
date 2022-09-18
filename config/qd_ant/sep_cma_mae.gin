@@ -1,0 +1,3 @@
+include "config/qd_ant/shared.gin"
+include "config/algorithms/sep_cma_mae.gin"
+experiment.name = "sep-CMA-MAE QD Ant"

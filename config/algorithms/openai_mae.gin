@@ -1,0 +1,20 @@
+# OpenAI-MAE
+Manager.archive_type = @MAEGridArchive
+Manager.result_archive_type = @GridArchive
+Manager.emitter_types = [(@AnnealingEmitter, 5)]
+Manager.is_dqd = False
+Manager.use_td3 = False
+Manager.call_jacobian = False
+
+AnnealingEmitter.sigma0 = 0.02
+AnnealingEmitter.restart_rule = "basic"
+AnnealingEmitter.weight_rule = "truncation"
+AnnealingEmitter.batch_size = 40
+AnnealingEmitter.es = "openai_es"
+
+OpenAIEvolutionStrategy.mirror_sampling = True
+OpenAIEvolutionStrategy.adam_learning_rate = 0.01
+OpenAIEvolutionStrategy.max_gens = None
+# Refer to the following for L2 regularization:
+# https://www.fast.ai/2018/07/02/adam-weight-decay/
+OpenAIEvolutionStrategy.adam_l2_coeff = 0.005

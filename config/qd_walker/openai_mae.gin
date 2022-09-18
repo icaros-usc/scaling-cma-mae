@@ -1,0 +1,4 @@
+include "config/qd_walker/shared.gin"
+include "config/algorithms/openai_mae.gin"
+experiment.name = "OpenAI-MAE QD Walker"
+

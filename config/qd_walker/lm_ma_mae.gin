@@ -1,0 +1,3 @@
+include "config/qd_walker/shared.gin"
+include "config/algorithms/lm_ma_mae.gin"
+experiment.name = "LM-MA-MAE QD Walker"

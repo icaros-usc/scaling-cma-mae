@@ -1,0 +1,3 @@
+include "config/qd_half_cheetah/shared.gin"
+include "config/algorithms/lm_ma_mae.gin"
+experiment.name = "LM-MA-MAE QD Half-Cheetah"

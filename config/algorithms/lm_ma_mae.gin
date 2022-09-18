@@ -1,0 +1,14 @@
+# LM-MA-MAE
+Manager.archive_type = @MAEGridArchive
+Manager.result_archive_type = @GridArchive
+Manager.emitter_types = [(@AnnealingEmitter, 5)]
+Manager.is_dqd = False
+Manager.use_td3 = False
+Manager.call_jacobian = False
+
+AnnealingEmitter.sigma0 = 0.02
+AnnealingEmitter.restart_rule = "basic"
+AnnealingEmitter.weight_rule = "truncation"
+# Number of vectors for LM-MA-ES defaults to be equal to batch size.
+AnnealingEmitter.batch_size = 40
+AnnealingEmitter.es = "lm_ma_es"
