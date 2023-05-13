@@ -1,159 +1,7 @@
-r"""Plots figures and tables for the paper.
+r"""Plots figures and tables for the optimization benchmarks. Instructions are
+similar to figures.py but with different filenames.
 
-## Overview
-
-The experiments output logging directories which are large and difficult to
-manage. This script first gathers the relevant data from these directories into
-one file, `figure_data.json`. `figure_data.json` is then passed around in order
-to make the figures.
-
-## Generating `figure_data.json` from logging directories
-
-(If you already have `figure_data.json`, skip this section)
-
-After running your experiments, arrange your logging directories as follows:
-
-    logs/  # Any name is okay; you could even put it in `.` but that is messy.
-      - manifest.yaml
-      - logging-directory-1
-      - logging-directory-2
-      - ...
-
-`manifest.yaml` lists the directories that were generated from your experiments.
-It must be located in the same directory as all the logging directories, and it
-must have the following format:
-
-    Paper:  # Top-level object.
-      Environment 1:
-        old_min_obj: -8765.4321...
-        min_obj: -1234.5678...
-        max_obj: 3210.5678...
-        archive_size: 1024
-        algorithms:
-            Algorithm 1:
-              - dir: logging-directory-1...
-                seed: 1
-              - dir: logging-directory-2...
-                seed: 3  # Make sure this matches the seed for the experiment.
-              ...
-            Algorithm 2:
-              - exclude  # Causes this algorithm to be excluded.
-              - dir: logging-directory-3...
-                seed: 1
-              ...
-            Algorithm 3:
-              - no_old_min_obj  # Causes old_min_obj to be ignored for this
-                                # algorithm.
-              - dir: logging-directory-4...
-                seed: 2
-              ...
-            ...
-      ...
-
-The fields are as follows:
-- `old_min_obj` and `min_obj` are used for the QD score calculations --
-  `old_min_obj` is the min that was used for calculating the QD score during the
-  experiment, and after the experiment, we recalculate the QD score with the
-  `min_obj`. This is necessary since the final QD score offset is based on the
-  lowest objective value that was ever inserted into the archive (see the
-  `find_min` function below), and we do not know this value during the
-  experiments.
-- `max_obj` is the maximum objective in the environment
-- `archive_size` is the number of cells in the archive grid
-
-You can leave `min_obj` blank for now. We'll generate it in the next step.
-
-Once you have this manifest, run the following commands (replace
-`logs/manifest.yaml` with the path to your manifest). Run all Python commands in
-the Singularity container associated with this project, e.g. run `make shell`
-to start a shell in the container and run the commands in that shell.
-
-    # Collect min objectives for each environment with the following command,
-    # and manually add these under the min_obj field in the manifest.
-    python -m src.analysis.figures find_min logs/manifest.yaml
-
-    # Generate `figure_data.json`
-    python -m src.analysis.figures collect logs/manifest.yaml
-
-For reference, figure_data.json looks like this:
-
-    {
-        "Env 1": {
-            # List of entries for the algorithm, where each entry contains data
-            # from a logging directory.
-            "Algo 1": [
-                {
-                    # Number of evaluations completed after each iteration. Used
-                    # on x-axis.
-                    "Evaluations": [...],
-
-                    # Metrics with a series of values from each generation. Some
-                    # lists have length `gens + 1` because they include a 0 at
-                    # the start, and others only have length `gens`.
-                    "series_metrics": {
-                        "QD Score": [...],
-
-                        # QD Score divided by max QD score. Only used in
-                        # statistical analysis.
-                        "Normalized QD Score": [...],
-
-                        "Archive Coverage": [...],
-
-                        "Best Performance": [...],
-                    }
-
-                    # Metrics that only have a final value.
-                    "point_metrics": {
-                        # Total runtime in hours.
-                        "Runtime (Hours)": XXX,
-                    },
-                },
-                ...
-            ],
-            ...
-        },
-        ...
-    }
-
-## Generating figures
-
-Run these commands to generate all figures associated with the paper (replace
-`figure_data.json` with the path to your figure_data). The default values are
-set such that these commands generate the versions shown in the paper. Run all
-Python commands in the Singularity container associated with this project, e.g.
-run `make shell` to start a shell in the container and run the commands in that
-shell.
-
-    # For the comparison figure.
-    python -m src.analysis.figures comparison figure_data.json
-
-    # For the higher-res version of the comparison figure.
-    python -m src.analysis.figures comparison_high_res figure_data.json
-
-    # To generate the latex source for the tables in the paper.
-    python -m src.analysis.figures table figure_data.json
-
-    # To generate statistical test results.
-    python -m src.analysis.figures tests figure_data.json
-
-If including the Latex files output by these commands, make sure to also put
-these commands in your paper:
-
-    \usepackage{booktabs}
-    \usepackage{multirow}
-    \usepackage{array}
-    \newcolumntype{L}[1]
-        {>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
-    \newcolumntype{C}[1]
-        {>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
-    \newcolumntype{R}[1]
-        {>{\raggedleft\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
-
-## Help
-
-Run the following for more help:
-
-    python -m src.analysis.figures COMMAND --help
+Also see the README in the root of this repo for more instructions.
 """
 import itertools
 import json
@@ -182,10 +30,12 @@ from src.analysis.utils import (is_me_es, load_experiment, load_me_es_objs,
 from src.mpl_styles import QUALITATIVE_COLORS
 from src.mpl_styles.utils import mpl_style_file
 
-# Metrics which we record in figure_data.json but do not plot.
+# Metrics which we record in figure_data_optbench.json but do not plot.
 METRIC_BLACKLIST = [
     "Normalized QD Score",
     "Normalized QD Score AUC",
+    "Wallclock Time",
+    "Process Time",
 ]
 
 # Reordered version of Seaborn colorblind palette.
@@ -256,7 +106,7 @@ def verify_manifest(paper_data,
                                     "MAEGridArchive.archive_learning_rate"):
                                 lr = float(line.split("=")[1].strip())
                                 break
-                        assert lr == float(algo.split("=")[1].strip()[:-1])
+                        assert lr == float(algo)
 
 
 def find_min(manifest: str):
@@ -315,18 +165,15 @@ def find_min(manifest: str):
 def collect(manifest: str,
             key: str = "Paper",
             reps: int = 10,
-            output: str = "figure_data.json",
-            check_seed: bool = True,
-            robust: bool = False):
-    """Collects data from logging directories and aggregates into a single JSON.
+            output: str = "figure_data_optbench.json",
+            check_seed: bool = False):
+    """Collects data from logging directories for the optbench study.
 
     Args:
         manifest: Path to YAML file holding paths to logging directories.
         key: The key in the manifest for loading the data.
         reps: Number of times each experiment should be repeated.
         output: Path to save results.
-        check_seed: Whether to check seeds.
-        robust: Collect robustness metrics output by analysis/robustness.py.
     """
     logger.info("Loading manifest")
     paper_data, root_dir = load_manifest(manifest, key)
@@ -336,10 +183,12 @@ def collect(manifest: str,
 
     # Mapping from the name in the raw metrics to the name in the output.
     metric_names = {
-        "Actual QD Score": "QD Score",
+        "QD Score": "QD Score",
         # "Normalized QD Score" gets added when we calculate "QD Score".
         "Archive Coverage": "Archive Coverage",
-        "Best Performance": "Best Performance",
+        "Objective Max": "Best Performance",
+        "Total Algo Time": "Wallclock Time",
+        "Total Process Time": "Process Time",
     }
 
     figure_data = {}
@@ -362,44 +211,22 @@ def collect(manifest: str,
 
             for entry in entries:
                 figure_data[env][algo].append(cur_data := {})
-                logdir = load_experiment(root_dir / entry["dir"])
+                logdir = LogDir("Placeholder",
+                                custom_dir=root_dir / entry["dir"])
                 metrics = load_metrics(logdir)
 
-                total_evals = metrics.get_single("Total Evals")["y"]
+                # The experiments use 200 evals per iteration for 10,000
+                # iterations.
+                total_evals = list(range(0, 2_000_000 + 1, 200))
                 cur_data["Evaluations"] = total_evals
-
-                if robust:
-                    # See robustness.py for definition. The idea in the metrics
-                    # below is to set all entries to the robust stats. We don't
-                    # create special entries so that the other functions can
-                    # operate easily with this data.
-                    with logdir.pfile(
-                            f"archive/robust_archive_stats_{metrics.total_itrs}.pkl"
-                    ).open("rb") as file:
-                        robust_stats = pkl.load(file)
 
                 cur_data["series_metrics"] = {}
                 qd_score_auc, norm_qd_score_auc = None, None
                 for actual_name, figure_name in metric_names.items():
                     data = metrics.get_single(actual_name)
 
-                    if actual_name == "Actual QD Score":
-
-                        # Adjust QD score with new min -- we exclude the first
-                        # element since it is always 0.
-                        archive_size = np.array(
-                            metrics.get_single("Archive Size")["y"])[1:]
-                        qd_score = np.array(data["y"])[1:]
-
-                        if robust:
-                            no_old_min_obj = True
-                            qd_score[:] = robust_stats["actual_qd"]
-
-                        obj_diff = (0.0 if no_old_min_obj else
-                                    env_data["old_min_obj"] -
-                                    env_data["min_obj"])
-                        qd_score = qd_score + archive_size * obj_diff
-                        data["y"][1:] = qd_score.tolist()
+                    if actual_name == "QD Score":
+                        # No need to adjust QD score in this experiment.
                         cur_data["series_metrics"][figure_name] = data["y"]
 
                         # Also add in normalized QD score.
@@ -414,20 +241,14 @@ def collect(manifest: str,
                         # to assume that every generation has the same number of
                         # evals.
                         evals_per_gen = total_evals[-1] / (len(total_evals) - 1)
-                        qd_score_auc = sum(qd_score) * evals_per_gen
+                        qd_score_auc = sum(data["y"]) * evals_per_gen
                         norm_qd_score_auc = sum(norm_qd_score) * evals_per_gen
-                    elif actual_name == "Archive Coverage" and robust:
-                        cur_data["series_metrics"][figure_name] = \
-                            [float(robust_stats["stats"]["coverage"]) for _ in data["y"]]
-                    elif actual_name == "Best Performance" and robust:
-                        cur_data["series_metrics"][figure_name] = \
-                            [float(robust_stats["stats"]["obj_max"]) for _ in data["y"]]
                     else:
                         cur_data["series_metrics"][figure_name] = data["y"]
 
                 cur_data["point_metrics"] = {
-                    "Runtime (Hours)":
-                        metrics.get_single("Cum Time")["y"][-1] / 3600,
+                    "Internal Runtime (Minutes)":
+                        metrics.get_single("Total Interal Time")["y"][-1] / 60,
                     "QD Score AUC":
                         qd_score_auc,
                     "Normalized QD Score AUC":
@@ -475,8 +296,8 @@ def metric_from_entry(entry, metric):
 
 
 def comparison(
-    figure_data: str = "./figure_data.json",
-    output: str = "comparison",
+    figure_data: str = "./figure_data_optbench.json",
+    output: str = "comparison_optbench",
     palette_name: str = "colorblind_reordered",
     height: float = 1.9,
     plot_every: int = 25,
@@ -625,18 +446,18 @@ def comparison(
                     ax.set_title("")
 
                 limits = {
-                    ("QD Score", "QD Ant"): [0, 2e6],
-                    ("QD Score", "QD Half-Cheetah"): [0, 6e6],
-                    ("QD Score", "QD Hopper"): [0, 2.5e6],
-                    ("QD Score", "QD Walker"): [0, 2e6],
-                    ("Archive Coverage", "QD Ant"): [0, 1.05],
-                    ("Archive Coverage", "QD Half-Cheetah"): [0, 1.05],
-                    ("Archive Coverage", "QD Hopper"): [0, 1.05],
-                    ("Archive Coverage", "QD Walker"): [0, 1.05],
-                    ("Best Performance", "QD Ant"): [0, 3100],
-                    ("Best Performance", "QD Half-Cheetah"): [0, 3100],
-                    ("Best Performance", "QD Hopper"): [0, 3100],
-                    ("Best Performance", "QD Walker"): [0, 3100],
+                    ("QD Score", "Sphere 100"): [0, 600_000],
+                    ("QD Score", "Sphere 1000"): [0, 30_000],
+                    ("QD Score", "Arm 100"): [0, 800_000],
+                    ("QD Score", "Arm 1000"): [0, 800_000],
+                    ("Archive Coverage", "Sphere 100"): [0, 1.0],
+                    ("Archive Coverage", "Sphere 1000"): [0, 0.04],
+                    ("Archive Coverage", "Arm 100"): [0, 1.0],
+                    ("Archive Coverage", "Arm 1000"): [0, 1.0],
+                    ("Best Performance", "Sphere 100"): [92, 101],
+                    ("Best Performance", "Sphere 1000"): [92, 101],
+                    ("Best Performance", "Arm 100"): [92, 101],
+                    ("Best Performance", "Arm 1000"): [92, 101],
                 }
 
                 # Set the labels along the left column to be the name of the
@@ -681,8 +502,8 @@ def comparison(
 
 
 def comparison_high_res(
-    figure_data: str = "./figure_data.json",
-    output: str = "comparison_high_res",
+    figure_data: str = "./figure_data_optbench.json",
+    output: str = "comparison_optbench_high_res",
 ):
     """Generates the larger version of the figure for the supplemental material.
 
@@ -698,9 +519,9 @@ TABLE_HEADER = r"""
 """
 
 
-def table(figure_data: str = "figure_data.json",
+def table(figure_data: str = "figure_data_optbench.json",
           transpose: bool = True,
-          output: str = "results_table.tex"):
+          output: str = "results_table_optbench.tex"):
     """Creates Latex tables showing final values of metrics.
 
     Make sure to include the "booktabs" and "array" package in your Latex
@@ -725,9 +546,9 @@ def table(figure_data: str = "figure_data.json",
     first_entry = figure_data[first_env][first_algo][0]
     metric_names = (list(first_entry["series_metrics"]) +
                     list(first_entry["point_metrics"]))
-    for name in METRIC_BLACKLIST:
-        if name in metric_names:
-            metric_names.remove(name)
+    #  for name in METRIC_BLACKLIST:
+    #      if name in metric_names:
+    #          metric_names.remove(name)
     if "QD Score AUC" in metric_names:
         # Move QD Score AUC immediately after QD Score.
         metric_names.remove("QD Score AUC")
@@ -795,97 +616,6 @@ def table(figure_data: str = "figure_data.json",
             file.write("\\end{center}\n")
             file.write("\\end{table*}\n")
             file.write("\n")
-
-    logger.info("Done")
-
-
-def single_table(figure_data: str = "figure_data.json",
-                 time: bool = True,
-                 output: str = "results_single_table.tex"):
-    """Creates a single Latex table for the paper.
-
-    Make sure to include the "booktabs" and "array" package in your Latex
-    document.
-
-    Args:
-        figure_data: Path to JSON file with figure data.
-        time: Whether to show runtime in the table.
-        output: Path to save Latex table.
-    """
-    figure_data = load_figure_data(figure_data)
-
-    # Safe to assume all envs have same metrics.
-    first_env = list(figure_data)[0]
-    first_algo = list(figure_data[first_env])[0]
-    first_entry = figure_data[first_env][first_algo][0]
-    metric_names = ["QD", "Cov", "Best"]
-    if time:
-        metric_names.append("Time")
-
-    logger.info("Gathering table data")
-
-    envs = list(figure_data)
-    algos = list(figure_data[next(iter(figure_data))])
-    table_df = pd.DataFrame(
-        index=algos,
-        columns=pd.MultiIndex.from_product([envs, metric_names]),
-        dtype=str,
-    )
-
-    for env in figure_data:
-        for metric in metric_names:
-            if metric == "Time":
-                # The best time is the minimum.
-                best = np.inf, None
-            else:
-                best = -np.inf, None
-
-            for algo in figure_data[env]:
-                raw_name = {
-                    "QD": "QD Score",
-                    "Best": "Best Performance",
-                    "Cov": "Archive Coverage",
-                    "Time": "Runtime (Hours)",
-                }[metric]
-
-                if raw_name in first_entry["series_metrics"]:
-                    final_metric_vals = np.array([
-                        entry["series_metrics"][raw_name][-1]
-                        for entry in figure_data[env][algo]
-                    ])
-                else:
-                    final_metric_vals = np.array([
-                        entry["point_metrics"][raw_name]
-                        for entry in figure_data[env][algo]
-                    ])
-
-                if metric == "QD":
-                    final_metric_vals /= 1e6
-
-                mean = final_metric_vals.mean()
-                metric_str = f"{mean:,.3f}" if metric == "QD" else f"{mean:,.2f}"
-                table_df[env, metric][algo] = metric_str
-
-                if metric == "Time":
-                    best = (mean, algo) if mean < best[0] else best
-                else:
-                    best = (mean, algo) if mean > best[0] else best
-
-            # Highlight the best metric by bolding it.
-            table_df[env,
-                     metric][best[1]] = ('{\\bf' +
-                                         table_df[env, metric][best[1]] + '}')
-
-    logger.info("Writing to {}", output)
-    with open(output, "w") as file:
-        file.write("\\begin{table*}[t]\n")
-        file.write(
-            table_df.to_latex(
-                column_format="l" + "r" * len(table_df.columns),
-                escape=False,
-            ))
-        file.write("\\end{table*}\n")
-        file.write("\n")
 
     logger.info("Done")
 
@@ -1044,20 +774,8 @@ def run_pairwise_ttests(figure_data, metric):
         return results
 
     if metric == "Normalized QD Score":
-        # Examples.
-        margin = 100000.0
-        return {
-            "H2 PGA-ME":
-                compare_to("PGA-ME", ["LM-MA-MAE", "sep-CMA-MAE", "OpenAI-MAE"],
-                           6),
-            "H2 1":
-                noninferiority("sep-CMA-MAE", "PGA-ME", margin, 3),
-        }
-    elif metric == "Normalized QD Score AUC":
         return {}
-    elif metric == "QD Score":
-        return {}
-    elif metric == "Runtime (Hours)":
+    elif metric == "Internal Runtime (Minutes)":
         return {}
     else:
         raise NotImplementedError(f"No hypotheses for {metric}")
@@ -1495,14 +1213,14 @@ def write_tests_as_latex(metric, anova_res, simple_main, ttests,
 
 # Name in table captions.
 CAPTION_NAME = {
-    "QD Score": "QD score",
-    "Normalized QD Score": "Normalized QD score",
+    "Normalized QD Score": "QD score",
     "Normalized QD Score AUC": "QD score AUC",
-    "Runtime (Hours)": "runtime",
+    "Internal Runtime (Minutes)": "Internal Runtime (Minutes)",
 }
 
 
-def tests(figure_data: str = "figure_data.json", output: str = "stats_tests"):
+def tests(figure_data: str = "figure_data_optbench.json",
+          output: str = "stats_tests_optbench"):
     """Outputs information about statistical tests.
 
     We use Normalized scores since the ANOVA needs values to have the same
@@ -1522,15 +1240,10 @@ def tests(figure_data: str = "figure_data.json", output: str = "stats_tests"):
 
     with mpl_style_file("simple.mplstyle") as f:
         with plt.style.context(f):
-            # QD Score is same as Normalized QD Score if not looking at two-way
-            # ANOVA. However, Normalized QD Score should be used if running
-            # two-way ANOVA to make sure the results are on the same scale
-            # across domains.
             for metric in [
-                    "QD Score",
                     "Normalized QD Score",
                     #  "Normalized QD Score AUC",
-                    "Runtime (Hours)",
+                    "Internal Runtime (Minutes)",
             ]:
                 logger.info("===== {} =====", metric)
                 tests_for_metric(figure_data, output, metric)

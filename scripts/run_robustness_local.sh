@@ -62,6 +62,7 @@ singularity exec $SINGULARITY_OPTS container.sif \
   dask-worker \
     --scheduler-file $SCHEDULER_FILE \
     --nprocs $NUM_WORKERS \
+    --memory-limit "1 GiB" \
     --nthreads 1 &
 PIDS_TO_KILL+=("$!")
 sleep 5

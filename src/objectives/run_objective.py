@@ -4,6 +4,7 @@ import time
 from typing import Union
 
 import numpy as np
+import torch
 
 from src.objectives.objective_result import ObjectiveResult
 from src.objectives.obs_stats import ObsStats
@@ -25,6 +26,11 @@ def run_objective(solution: Union[np.ndarray, NoiseVector],
     take in solution, n_evals, seed, and obs_stats. Otherwise, evaluate() should
     take in solution, n_evals, and seed.
     """
+    # This seems to be necessary for making PyTorch run single-threaded in some
+    # compute settings e.g. a multi-core local machine, even though we already
+    # do this in main.py.
+    torch.set_num_threads(1)
+
     start = time.time()
     logger.info("run_objective with %d n_evals and seed %d", n_evals, seed)
     objective_module = get_objective_module()

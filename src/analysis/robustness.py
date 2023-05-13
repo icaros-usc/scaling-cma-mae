@@ -3,11 +3,14 @@
 This script is based on main.py. It should be invoked with the shell scripts
 shown below since it requires distributed computation.
 
+"Robustness" is our alternative name for "Corrected Metrics."
+
 Example:
     bash scripts/run_robustness_local.sh manifest.yaml 42 8
 """
 import itertools
 import logging
+import pickle as pkl
 from typing import List
 
 import fire
@@ -21,8 +24,9 @@ from ribs.archives import ArchiveDataFrame
 from src.analysis.figures import exclude_from_manifest, load_manifest
 from src.analysis.utils import (is_me_es, load_experiment,
                                 load_me_es_archive_df, load_metrics)
+from src.archives import GridArchive
 from src.main import check_env
-from src.objectives import get_obj
+from src.objectives import actual_qd_score, get_obj
 from src.objectives.objective_result import ObjectiveResult
 from src.objectives.obs_stats import ObsStats
 from src.objectives.run_objective import run_objective
@@ -35,8 +39,8 @@ def robustness(client: Client, manifest: str, seed: int):
     """Calculates the robustness of all solutions in all logging directories.
 
     Robustness is calculated by evaluating each solution several times
-    (configured with Manager.best_robustness) and comparing the mean objective
-    to the one found during the experiment.
+    (configured with Manager.best_robustness) and adding the new solution to the
+    archive.
 
     Robustness results are saved next to the archive DF; e.g. if the archive was
     archive/archive_5000.pkl, the robustness is
@@ -44,17 +48,31 @@ def robustness(client: Client, manifest: str, seed: int):
     corresponding to the rows of the archive DF.
     """
     paper_data, root_dir = load_manifest(manifest)
+    dir_idx = 0
 
     for env in paper_data:
         for algo in paper_data[env]["algorithms"]:
             if exclude_from_manifest(paper_data, env, algo):
                 continue
 
-            logdirs = [d["dir"] for d in paper_data[env]["algorithms"][algo]]
+            logdirs = [
+                d["dir"]
+                for d in paper_data[env]["algorithms"][algo]
+                if d != "no_old_min_obj"
+            ]
 
             for logdir_path in logdirs:
-                logging.info("----- Robustness for %s -----", logdir_path)
+                dir_idx += 1
+                logging.info("----- (%d) Robustness for %s -----", dir_idx,
+                             logdir_path)
                 logdir = load_experiment(root_dir / logdir_path)
+                total_gens = load_metrics(logdir).total_itrs
+
+                # Indicates that we already finished this directory.
+                if logdir.pfile(f"archive/robust_archive_stats_{total_gens}.pkl"
+                               ).exists():
+                    logging.info("Already completed -- skipping")
+                    continue
 
                 # Initialize objective modules everywhere. Copied from Manager.
                 obj_name = gin.query_parameter("Manager.obj_name")
@@ -74,7 +92,6 @@ def robustness(client: Client, manifest: str, seed: int):
                 client.run(init_objective_module, objective_class, config)
 
                 # Load archive data.
-                total_gens = load_metrics(logdir).total_itrs
                 logging.info("Loading archive data from gen %d", total_gens)
                 archive_df: ArchiveDataFrame = (
                     load_me_es_archive_df(logdir)
@@ -91,10 +108,9 @@ def robustness(client: Client, manifest: str, seed: int):
                 # action noise.
                 eval_kwargs = {"disable_noise": True}
 
-                # Use same number of evals for calculating robustness as was
-                # used in experiment.
+                # Hard-code evals to 10.
                 logging.info("Evaluating solutions")
-                n_evals = gin.query_parameter("Manager.best_robustness")
+                n_evals = 10
                 futures = [
                     client.submit(
                         run_objective,
@@ -109,6 +125,7 @@ def robustness(client: Client, manifest: str, seed: int):
                 ]
                 results: List[ObjectiveResult] = client.gather(futures)
 
+                # Save raw robustness data.
                 robustness_file = logdir.file(
                     f"archive/archive_{total_gens}_robustness.pkl")
                 logging.info("Saving robustness results in %s", robustness_file)
@@ -126,6 +143,42 @@ def robustness(client: Client, manifest: str, seed: int):
                     np.array(robustness_data["agg_return"]) -
                     archive_df.batch_objectives())
                 pd.DataFrame(robustness_data).to_pickle(robustness_file)
+
+                # Create new archive for storing robustness results.
+                archive_type = ("@GridArchive" if is_me_es() else str(
+                    gin.query_parameter("Manager.archive_type")))
+                try:
+                    result_archive_type = str(
+                        gin.query_parameter("Manager.result_archive_type"))
+                except ValueError:  # result_archive_type was not provided.
+                    result_archive_type = archive_type
+                if result_archive_type == "@GridArchive":
+                    # pylint: disable = no-value-for-parameter
+                    robust_archive = GridArchive(seed=42,
+                                                 dtype=np.float32,
+                                                 record_history=False)
+                else:
+                    raise TypeError(
+                        f"Cannot handle archive type {archive_type}")
+                robust_archive.initialize(0)  # No solutions.
+
+                # Add solutions to the archive and save it along with its stats.
+                for r in results:
+                    robust_archive.add(np.array([]), r.agg_return, r.agg_bc)
+                robust_archive.as_pandas().to_pickle(
+                    logdir.file(f"archive/robust_archive_{total_gens}.pkl"))
+
+                with logdir.pfile(
+                        f"archive/robust_archive_stats_{total_gens}.pkl").open(
+                            "wb") as file:
+                    pkl.dump(
+                        {
+                            "stats":
+                                robust_archive.stats._asdict(),
+                            "actual_qd":
+                                actual_qd_score(
+                                    robust_archive.as_pandas()["objective"]),
+                        }, file)
 
                 # To stop memory leaks.
                 client.run(close_objective_module_env)

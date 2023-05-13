@@ -1,0 +1,4 @@
+include "config/qd_half_cheetah/shared.gin"
+include "config/algorithms/sep_cma_mae.gin"
+experiment.name = "sep-CMA-MAE QD Half-Cheetah (alpha=1.0)"
+MAEGridArchive.archive_learning_rate = 1.0

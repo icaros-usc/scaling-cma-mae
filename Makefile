@@ -6,12 +6,12 @@ help: ## Print this message.
 container.sif: container.def requirements.txt dask_config.yml ## The Singularity container. Requires sudo to run.
 	singularity build $@ $<
 
-# The value of DISPLAY may depend on your system.
+# The value of DISPLAY depends on your system, hence we get it from the env.
 shell: ## Start a shell in the container.
-	SINGULARITYENV_DISPLAY=:0 singularity shell --cleanenv --nv --no-home --bind $(PWD) container.sif
-shell-bind: ## Start a shell with GUI and with ./results bound to /results.
-	SINGULARITYENV_DISPLAY=:0 singularity shell --cleanenv --nv --no-home --bind $(PWD),./results:/results container.sif
-.PHONY: shell shell-gui
+	SINGULARITYENV_DISPLAY=$(DISPLAY) singularity shell --cleanenv --nv --no-home --bind $(PWD) container.sif
+shell-bind: ## Start a shell with ./results bound to /results.
+	SINGULARITYENV_DISPLAY=$(DISPLAY) singularity shell --cleanenv --nv --no-home --bind $(PWD),./results:/results container.sif
+.PHONY: shell shell-bind
 
 test: ## Run unit tests.
 	pytest src/

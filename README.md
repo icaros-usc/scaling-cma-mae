@@ -3,7 +3,8 @@
 This is the official implementation of "Training Diverse High-Dimensional
 Controllers by Scaling Covariance Matrix Adaptation MAP-Annealing" by
 [Bryon Tjanaka](https://btjanaka.net),
-[Matthew C. Fontaine](https://github.com/tehqin),
+[Matthew C. Fontaine](https://scholar.google.com/citations?user=RqSvzikAAAAJ),
+[David H. Lee](https://www.linkedin.com/in/lee-david-haolong),
 [Aniruddha Kalkar](https://aniruddhakalkar.github.io), and
 [Stefanos Nikolaidis](https://stefanosnikolaidis.net).
 
@@ -54,7 +55,11 @@ implementation. If you use this code in your research, please also cite pyribs:
   * [Running Locally](#running-locally)
   * [Testing Experiments](#testing-experiments)
   * [Reloading](#reloading)
-* [Running Analysis and Generating Figures](#running-analysis-and-generating-figures)
+  * [Robustness (AKA Corrected Metrics)](#robustness-aka-corrected-metrics)
+* [Ablation on Archive Learning Rate](#ablation-on-archive-learning-rate)
+* [Optimization Benchmarks](#optimization-benchmarks)
+  * [Experiments](#experiments)
+  * [Analysis](#analysis)
 * [Results](#results)
 * [Implementation](#implementation)
   * [Algorithms](#algorithms)
@@ -73,6 +78,7 @@ implementation. If you use this code in your research, please also cite pyribs:
 - `docs/`: Additional documentation.
 - `src/`: Python implementations and related tools.
 - `scripts/`: Bash scripts.
+- `optimization_benchmarks/`: Benchmarks on optimization problems.
 
 ## Getting Started
 
@@ -80,7 +86,7 @@ implementation. If you use this code in your research, please also cite pyribs:
    ```bash
    git clone https://github.com/icaros-usc/scaling-cma-mae.git
    ```
-1. **Install Singularity:** All of our code runs in a
+1. **Install Singularity:** Our primary code runs in a
    [Singularity / Apptainer](https://apptainer.org) container. See
    [here](https://apptainer.org/user-docs/master/quick_start.html) to install
    Singularity.
@@ -180,8 +186,8 @@ directory which stores the stdout of the scheduler and workers; see
 [Running Locally](#running-locally) and [Running on Slurm](#running-on-slurm)
 for more info.
 
-See [below](#running-analysis-and-generating-figures) for how to analyze results
-and generate figures.
+Refer to `src/analysis/figures.py` and `src/analysis/supplemental.py` for how to
+analyze results and generate figures.
 
 The remainder of this section provides useful info for running experiments.
 
@@ -286,16 +292,164 @@ also provides an option for reloading:
 bash scripts/run_local.sh CONFIG SEED NUM_WORKERS LOGDIR
 ```
 
-## Running Analysis and Generating Figures
+### Robustness (AKA Corrected Metrics)
 
-Refer to `src/analysis/figures.py` and `src/analysis/supplemental.py`.
+Corrected metrics (we call these Robustness in our code) are computed after
+experiments are completed with `src/analysis/robustness.py` through the shell
+script `scripts/run_robustness_local.sh`. Running the script outputs several
+files with outputs from the robustness computations in each logging directory.
+Analysis of these outputs may be done with `src/analysis/figures.py` as follows:
+
+```bash
+# Aggregates logging directory data into `figure_data_robust.json`
+python -m src.analysis.figures collect [YOUR_MANIFEST_FILE] --robust --output figure_data_robust.json
+
+# We don't run `comparison` as there is no intermediate data to plot.
+
+# Statistical analysis; output in `stats_tests_robust`
+python -m src.analysis.figures tests figure_data_robust.json --output stats_tests_robust
+
+# Table; output in `results_single_table_robust.tex`
+python -m src.analysis.figures single_table figure_data_robust.json --output results_single_table_robust.tex
+```
+
+## Ablation on Archive Learning Rate
+
+We also run an ablation where we look at how the choice of alpha affects the
+performance of sep-CMA-MAE. This ablation is run in the same manner as the
+experiments above, but with the following commands. Note that the default config
+for sep-CMA-MAE (`sep_cma_mae.gin`) uses alpha=0.001.
+
+```bash
+# QD Ant
+bash scripts/run_slurm.sh config/qd_ant/sep_cma_mae_0-0.gin SEED config/hpc/100.sh
+bash scripts/run_slurm.sh config/qd_ant/sep_cma_mae.gin SEED config/hpc/100.sh
+bash scripts/run_slurm.sh config/qd_ant/sep_cma_mae_0-01.gin SEED config/hpc/100.sh
+bash scripts/run_slurm.sh config/qd_ant/sep_cma_mae_0-1.gin SEED config/hpc/100.sh
+bash scripts/run_slurm.sh config/qd_ant/sep_cma_mae_1-0.gin SEED config/hpc/100.sh
+
+# QD Half-Cheetah
+bash scripts/run_slurm.sh config/qd_half_cheetah/sep_cma_mae_0-0.gin SEED config/hpc/100.sh
+bash scripts/run_slurm.sh config/qd_half_cheetah/sep_cma_mae.gin SEED config/hpc/100.sh
+bash scripts/run_slurm.sh config/qd_half_cheetah/sep_cma_mae_0-01.gin SEED config/hpc/100.sh
+bash scripts/run_slurm.sh config/qd_half_cheetah/sep_cma_mae_0-1.gin SEED config/hpc/100.sh
+bash scripts/run_slurm.sh config/qd_half_cheetah/sep_cma_mae_1-0.gin SEED config/hpc/100.sh
+
+# QD Hopper
+bash scripts/run_slurm.sh config/qd_hopper/sep_cma_mae_0-0.gin SEED config/hpc/100.sh
+bash scripts/run_slurm.sh config/qd_hopper/sep_cma_mae.gin SEED config/hpc/100.sh
+bash scripts/run_slurm.sh config/qd_hopper/sep_cma_mae_0-01.gin SEED config/hpc/100.sh
+bash scripts/run_slurm.sh config/qd_hopper/sep_cma_mae_0-1.gin SEED config/hpc/100.sh
+bash scripts/run_slurm.sh config/qd_hopper/sep_cma_mae_1-0.gin SEED config/hpc/100.sh
+
+# QD Walker
+bash scripts/run_slurm.sh config/qd_walker/sep_cma_mae_0-0.gin SEED config/hpc/100.sh
+bash scripts/run_slurm.sh config/qd_walker/sep_cma_mae.gin SEED config/hpc/100.sh
+bash scripts/run_slurm.sh config/qd_walker/sep_cma_mae_0-01.gin SEED config/hpc/100.sh
+bash scripts/run_slurm.sh config/qd_walker/sep_cma_mae_0-1.gin SEED config/hpc/100.sh
+bash scripts/run_slurm.sh config/qd_walker/sep_cma_mae_1-0.gin SEED config/hpc/100.sh
+```
+
+Analysis should avoid using the default names to prevent name conflicts with the
+main results:
+
+```bash
+# Aggregates logging directory data into `figure_data_alpha.json`
+python -m src.analysis.figures collect [YOUR_MANIFEST_FILE] --key AlphaAblation --output figure_data_alpha.json
+
+# Plots comparison figures in the `comparison_alpha/` directory.
+python -m src.analysis.figures comparison figure_data_alpha.json --output comparison_alpha
+
+# Table; output in `results_single_table_alpha.tex`
+python -m src.analysis.figures single_table figure_data_alpha.json --output results_single_table_alpha.tex
+```
+
+Robustness / corrected metrics can also be run as described earlier, with
+analysis performed as:
+
+```bash
+# Aggregates logging directory data into `figure_data_alpha_robust.json`
+python -m src.analysis.figures collect [YOUR_MANIFEST_FILE] --key AlphaAblation --robust --output figure_data_alpha_robust.json
+
+# Table; output in `results_single_table_alpha_robust.tex`
+python -m src.analysis.figures single_table figure_data_alpha_robust.json --notime --output results_single_table_alpha_robust.tex
+```
+
+## Optimization Benchmarks
+
+We also perform a study to understand the performance of CMA-MAE and its
+variants on low-dimensional optimization benchmarks. The source code for this
+study is located in `optimization_benchmarks/` and is run in a separate Conda
+environment. However, the analysis code is shared with this main repo and is run
+in the same container as the main experiments of this paper. This study may be
+run as follows.
+
+### Experiments
+
+1. Change into `optimization_benchmarks/`:
+   ```bash
+   cd optimization_benchmarks
+   ```
+1. Set up a separate Conda environment:
+   ```bash
+   conda create --prefix ./env python=3.8
+   ```
+1. Install the requirements:
+   ```bash
+   pip install -r requirements.txt
+   ```
+1. Run the experiments. To replicate our paper, you will need to run 10 trials
+   of CMA-MAE and its variants in both the sphere and arm domains, with both 100
+   and 1000 dimensions. The exact commands are as follows.
+   `experiment_parallel.py` runs multiple experiments in parallel for
+   convenience.
+   ```bash
+   python experiment_parallel.py sphere cma_mae 100 10
+   python experiment_parallel.py sphere sep_cma_mae 100 10
+   python experiment_parallel.py sphere lm_ma_mae 100 10
+   python experiment_parallel.py sphere openai_mae 100 10
+   python experiment_parallel.py sphere cma_mae 1000 10
+   python experiment_parallel.py sphere sep_cma_mae 1000 10
+   python experiment_parallel.py sphere lm_ma_mae 1000 10
+   python experiment_parallel.py sphere openai_mae 1000 10
+   python experiment_parallel.py arm cma_mae 100 10
+   python experiment_parallel.py arm sep_cma_mae 100 10
+   python experiment_parallel.py arm lm_ma_mae 100 10
+   python experiment_parallel.py arm openai_mae 100 10
+   python experiment_parallel.py arm cma_mae 1000 10
+   python experiment_parallel.py arm sep_cma_mae 1000 10
+   python experiment_parallel.py arm lm_ma_mae 1000 10
+   python experiment_parallel.py arm openai_mae 1000 10
+   ```
+   If you wish to modify the configuration for the experiments, see the `CONFIG`
+   variable in `experiment.py`.
+
+### Analysis
+
+The analysis for the low-dimensional study is done in the main directory of this
+repo within the Singularity container used in the main experiments. To perform
+this analysis, first create a manifest file containing the logging directories
+as described in `src/analysis/figures.py`. Then, run the following commands
+within the container. To start a shell in the container, you can use
+`make shell` (see the `Makefile`) or run `singularity shell container.sif`.
+
+```bash
+# Aggregates logging directory data into `figure_data_optbench.json`
+python -m src.analysis.figures_optbench collect [YOUR_MANIFEST_FILE]
+
+# Plots comparison figures in the `comparison_optbench/` directory.
+python -m src.analysis.figures_optbench comparison
+
+# Statistical analysis; output in `stats_tests_optbench`
+python -m src.analysis.figures_optbench tests
+
+# Table; output in `results_table_optbench.tex`
+python -m src.analysis.figures_optbench table
+```
 
 ## Results
 
-The following plot shows QD Score for all algorithms after 1 million
-evaluations. Refer to our paper for final numerical values.
-
-![Plot comparing all metrics](docs/comparison.png)
+Refer to our paper for results in each study.
 
 ## Implementation
 
@@ -365,8 +519,8 @@ libraries:
 - We also use `iterations` and `generations` interchangeably.
 - In our code (specifically `src/manager.py`), we measure `Robustness` on every
   iteration. However, this metric is only the robustness of the best-performing
-  solution. The `Mean Robustness` that we describe in the paper is computed in a
-  separate script (`src/analysis/robustness.py`) after experiments are
+  solution. Instead, we compute the Corrected Metrics described in the paper in
+  a separate script (`src/analysis/robustness.py`) after experiments are
   completed.
 
 ## License

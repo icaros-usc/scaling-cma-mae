@@ -1,0 +1,4 @@
+include "config/qd_hopper/shared.gin"
+include "config/algorithms/sep_cma_mae.gin"
+experiment.name = "sep-CMA-MAE QD Hopper (alpha=0.01)"
+MAEGridArchive.archive_learning_rate = 0.01

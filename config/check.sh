@@ -17,7 +17,7 @@ for experiment in $(ls "config"); do
     fullname="config/${experiment}/${file}"
 
     case ${file} in
-      ablations|me_es|shared.gin)
+      ablations|me_es|shared.gin|sep_cma_mae_alpha_0-01.gin|sep_cma_mae_alpha_0-0.gin|sep_cma_mae_alpha_0-1.gin|sep_cma_mae_alpha_1-0.gin)
         echo "Skipping ${fullname}"
         continue
         ;;

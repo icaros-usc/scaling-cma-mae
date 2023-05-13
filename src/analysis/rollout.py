@@ -52,7 +52,8 @@ def main(logdir: str,
          video_output: str = None,
          query: "array-like" = None,
          gen: int = None,
-         env_id: str = None):
+         env_id: str = None,
+         seed: int = None):
     """Reads results from logdir and rolls out policies from the archive.
 
     Args:
@@ -146,6 +147,9 @@ def main(logdir: str,
                 shutil.rmtree(main_dir)
             main_dir.mkdir()
 
+        rng = np.random.default_rng(seed)
+        rollout_seeds = rng.integers(10000, size=n_evals)
+
         with alive_bar(n_evals, "Evals") as progress:
             for i in range(n_evals):
                 if video:
@@ -153,10 +157,10 @@ def main(logdir: str,
                     video_dir.mkdir()
 
                 res = objective_module.evaluate(
-                    sol,
-                    1,
-                    i,
-                    ObsStats(obs_mean, obs_std),
+                    solution=sol,
+                    n_evals=1,
+                    seed=rollout_seeds[i],
+                    obs_stats=ObsStats(obs_mean, obs_std),
                     render=render,
                     render_callable=render_callable if video else None,
                     disable_noise=True,

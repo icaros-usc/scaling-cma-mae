@@ -190,7 +190,10 @@ singularity exec ${SINGULARITY_OPTS} container.sif \\
     --port $SCHEDULER_PORT \\
     --scheduler-file $SCHEDULER_FILE &
 
-sleep 10  # Wait for scheduler to start.
+# Wait for scheduler to start.
+while [ ! -e $SCHEDULER_FILE ]; do
+  sleep 1
+done
 
 # Parse address from scheduler file.
 address=\$(singularity exec ${SINGULARITY_OPTS} container.sif python -c \"\\
