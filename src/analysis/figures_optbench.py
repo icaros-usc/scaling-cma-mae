@@ -450,14 +450,17 @@ def comparison(
                     ("QD Score", "Sphere 1000"): [0, 30_000],
                     ("QD Score", "Arm 100"): [0, 800_000],
                     ("QD Score", "Arm 1000"): [0, 800_000],
+                    ("QD Score", "Maze"): [0, 800_000],
                     ("Archive Coverage", "Sphere 100"): [0, 1.0],
                     ("Archive Coverage", "Sphere 1000"): [0, 0.04],
                     ("Archive Coverage", "Arm 100"): [0, 1.0],
                     ("Archive Coverage", "Arm 1000"): [0, 1.0],
+                    ("Archive Coverage", "Maze"): [0, 1.0],
                     ("Best Performance", "Sphere 100"): [92, 101],
                     ("Best Performance", "Sphere 1000"): [92, 101],
                     ("Best Performance", "Arm 100"): [92, 101],
                     ("Best Performance", "Arm 1000"): [92, 101],
+                    ("Best Performance", "Maze"): [92, 101],
                 }
 
                 # Set the labels along the left column to be the name of the
@@ -589,8 +592,9 @@ def table(figure_data: str = "figure_data_optbench.json",
         # "Invert" table_data.
         table_data = {
             metric:
-            pd.DataFrame({env: df[metric] for env, df in table_data.items()})
-            for metric in metric_names
+                pd.DataFrame({
+                    env: df[metric] for env, df in table_data.items()
+                }) for metric in metric_names
         }
 
     logger.info("Writing to {}", output)
@@ -683,7 +687,8 @@ def run_pairwise_ttests(figure_data, metric):
             algo: [
                 metric_from_entry(entry, metric)
                 for entry in figure_data[env][algo]
-            ] for algo in figure_data[env]
+            ]
+            for algo in figure_data[env]
         } for env in figure_data
     }
 
@@ -730,7 +735,8 @@ def run_pairwise_ttests(figure_data, metric):
             algo: [
                 metric_from_entry(entry, "QD Score")
                 for entry in figure_data[env][algo]
-            ] for algo in figure_data[env]
+            ]
+            for algo in figure_data[env]
         } for env in figure_data
     }
 
@@ -787,7 +793,8 @@ def run_pairwise(figure_data, metric, alpha=0.05, test="tukey"):
             algo: [
                 metric_from_entry(entry, metric)
                 for entry in figure_data[env][algo]
-            ] for algo in figure_data[env]
+            ]
+            for algo in figure_data[env]
         } for env in figure_data
     }
 
@@ -956,18 +963,20 @@ def tests_for_metric(figure_data, root_dir: Path, metric: str):
 
     logger.info("Running One-Way ANOVAs")
     one_anova_res = {
-        env: pingouin.anova(data=df[df["Environment"] == env],
-                            dv=metric,
-                            between="Algorithm") for env in figure_data
+        env:
+            pingouin.anova(data=df[df["Environment"] == env],
+                           dv=metric,
+                           between="Algorithm") for env in figure_data
     }
     one_anova_str = "\n\n".join(f"### {env}\n{one_anova_res[env].to_markdown()}"
                                 for env in one_anova_res)
 
     logger.info("Running One-Way Welch ANOVAs")
     welch_anova_res = {
-        env: pingouin.welch_anova(data=df[df["Environment"] == env],
-                                  dv=metric,
-                                  between="Algorithm") for env in figure_data
+        env:
+            pingouin.welch_anova(data=df[df["Environment"] == env],
+                                 dv=metric,
+                                 between="Algorithm") for env in figure_data
     }
     welch_anova_str = "\n\n".join(
         f"### {env}\n{welch_anova_res[env].to_markdown()}"
@@ -979,7 +988,8 @@ def tests_for_metric(figure_data, root_dir: Path, metric: str):
     logger.info("Running pairwise t-tests")
     ttests = run_pairwise_ttests(figure_data, metric)
     ttest_str_parts = {
-        hypothesis: '\n\n'.join(f"""\
+        hypothesis:
+            '\n\n'.join(f"""\
 #### {env}
 
 {d.to_markdown()}
@@ -1008,9 +1018,10 @@ def tests_for_metric(figure_data, root_dir: Path, metric: str):
 
     logger.info("Homoscedasticity in each environment")
     var_test_by_env = {
-        env: pingouin.homoscedasticity(grouped_scores_by_env[env],
-                                       method="levene",
-                                       alpha=0.05)
+        env:
+            pingouin.homoscedasticity(grouped_scores_by_env[env],
+                                      method="levene",
+                                      alpha=0.05)
         for env in grouped_scores_by_env
     }
     var_test_by_env_str = "\n\n".join(

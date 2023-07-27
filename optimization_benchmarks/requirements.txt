@@ -1,4 +1,4 @@
-ribs==0.5.0
+ribs==0.5.2
 fire
 tqdm
 matplotlib

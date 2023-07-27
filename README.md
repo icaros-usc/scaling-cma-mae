@@ -16,10 +16,10 @@ For more info, visit the following links:
 To cite this paper, please use the following bibtex:
 
 ```bibtex
-@misc{tjanaka2022training,
+@misc{tjanaka2023training,
       title={Training Diverse High-Dimensional Controllers by Scaling Covariance Matrix Adaptation MAP-Annealing},
-      author={Bryon Tjanaka and Matthew C. Fontaine and Aniruddha Kalkar and Stefanos Nikolaidis},
-      year={2022},
+      author={Bryon Tjanaka and Matthew C. Fontaine and David H. Lee and Aniruddha Kalkar and Stefanos Nikolaidis},
+      year={2023},
       eprint={2210.02622},
       archivePrefix={arXiv},
       primaryClass={cs.RO}
@@ -30,16 +30,22 @@ We primarily use the [pyribs](https://pyribs.org/) library in this
 implementation. If you use this code in your research, please also cite pyribs:
 
 ```bibtex
-@misc{pyribs,
-  title = {pyribs: A bare-bones Python library for quality diversity
-           optimization},
-  author = {Bryon Tjanaka and Matthew C. Fontaine and David H. Lee and
-            Yulun Zhang and Trung Tran Minh Vu and Sam Sommerer and
-            Nathan Dennler and Stefanos Nikolaidis},
-  year = {2021},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  howpublished = {\url{https://github.com/icaros-usc/pyribs}},
+@inproceedings{10.1145/3583131.3590374,
+  author = {Tjanaka, Bryon and Fontaine, Matthew C and Lee, David H and Zhang, Yulun and Balam, Nivedit Reddy and Dennler, Nathaniel and Garlanka, Sujay S and Klapsis, Nikitas Dimitri and Nikolaidis, Stefanos},
+  title = {Pyribs: A Bare-Bones Python Library for Quality Diversity Optimization},
+  year = {2023},
+  isbn = {9798400701191},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/3583131.3590374},
+  doi = {10.1145/3583131.3590374},
+  abstract = {Recent years have seen a rise in the popularity of quality diversity (QD) optimization, a branch of optimization that seeks to find a collection of diverse, high-performing solutions to a given problem. To grow further, we believe the QD community faces two challenges: developing a framework to represent the field's growing array of algorithms, and implementing that framework in software that supports a range of researchers and practitioners. To address these challenges, we have developed pyribs, a library built on a highly modular conceptual QD framework. By replacing components in the conceptual framework, and hence in pyribs, users can compose algorithms from across the QD literature; equally important, they can identify unexplored algorithm variations. Furthermore, pyribs makes this framework simple, flexible, and accessible, with a user-friendly API supported by extensive documentation and tutorials. This paper overviews the creation of pyribs, focusing on the conceptual framework that it implements and the design principles that have guided the library's development. Pyribs is available at https://pyribs.org},
+  booktitle = {Proceedings of the Genetic and Evolutionary Computation Conference},
+  pages = {220–229},
+  numpages = {10},
+  keywords = {framework, quality diversity, software library},
+  location = {Lisbon, Portugal},
+  series = {GECCO '23}
 }
 ```
 
@@ -84,7 +90,7 @@ implementation. If you use this code in your research, please also cite pyribs:
 
 1. **Clone the repo:**
    ```bash
-   git clone https://github.com/icaros-usc/scaling-cma-mae.git
+   git clone https://github.com/icaros-usc/scaling-cma-mae.git --recurse-submodules
    ```
 1. **Install Singularity:** Our primary code runs in a
    [Singularity / Apptainer](https://apptainer.org) container. See
@@ -386,6 +392,11 @@ run as follows.
 
 ### Experiments
 
+1. This code requires the Kheperax submodule. If you did not already pull the
+   submodule, do so now with:
+   ```bash
+   git submodule update --init
+   ```
 1. Change into `optimization_benchmarks/`:
    ```bash
    cd optimization_benchmarks
@@ -393,16 +404,21 @@ run as follows.
 1. Set up a separate Conda environment:
    ```bash
    conda create --prefix ./env python=3.8
+   conda activate ./env
    ```
 1. Install the requirements:
    ```bash
    pip install -r requirements.txt
+   pip install -r ../Kheperax/requirements.txt
    ```
-1. Run the experiments. To replicate our paper, you will need to run 10 trials
-   of CMA-MAE and its variants in both the sphere and arm domains, with both 100
-   and 1000 dimensions. The exact commands are as follows.
-   `experiment_parallel.py` runs multiple experiments in parallel for
-   convenience.
+1. (Optional) Kheperax runs with JAX and will be significantly faster with GPU
+   support. To install JAX with GPU support, see
+   [here](https://github.com/google/jax#installation).
+1. Run the experiments. To replicate our paper, first run 10 trials of CMA-MAE
+   and its variants in both the sphere and arm domains, with both 100 and 1000
+   dimensions. The exact commands are as follows. `experiment_parallel.py` runs
+   multiple experiments in parallel for convenience.
+
    ```bash
    python experiment_parallel.py sphere cma_mae 100 10
    python experiment_parallel.py sphere sep_cma_mae 100 10
@@ -421,8 +437,21 @@ run as follows.
    python experiment_parallel.py arm lm_ma_mae 1000 10
    python experiment_parallel.py arm openai_mae 1000 10
    ```
+
+   Next, run 10 trials of each method on the maze domain. We have separated this
+   script into `maze.py`. Each call to `maze.py` involves passing the algorithm
+   and seed as shown below; you will need to run each command 10 times with
+   different seeds.
+
+   ```bash
+   python maze.py arm cma_mae [SEED]
+   python maze.py arm sep_cma_mae [SEED]
+   python maze.py arm lm_ma_mae [SEED]
+   python maze.py arm openai_mae [SEED]
+   ```
+
    If you wish to modify the configuration for the experiments, see the `CONFIG`
-   variable in `experiment.py`.
+   variables in `experiment.py` and `maze.py`.
 
 ### Analysis
 

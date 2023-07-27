@@ -1,0 +1,3 @@
+[submodule "Kheperax"]
+	path = Kheperax
+	url = https://github.com/adaptive-intelligent-robotics/Kheperax.git

@@ -70,11 +70,8 @@ histogram_figure*.pdf
 histogram_figure*.svg
 histogram_video*.mp4
 histogram_video/
-figure_data.json
-figure_data_alpha.json
-figure_data_optbench.json
-figure_data_robust.json
-figure_data_alpha_robust.json
+figure_data/
+figure_data*.json
 
 # Singularity
 *.sif
